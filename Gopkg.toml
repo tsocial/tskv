@@ -32,7 +32,3 @@
 [[constraint]]
   name = "gopkg.in/alecthomas/kingpin.v2"
   version = "2.2.6"
-
-[[constraint]]
-  name = "github.com/tsocial/tessellate"
-  version = "0.2.2"
