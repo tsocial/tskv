@@ -82,12 +82,7 @@ func getKey(c *ConsulStore, key string) []byte {
 	return w.storage
 }
 
-func setKey(c *ConsulStore, key, tag string, val *os.File) {
-	b, err := ioutil.ReadAll(val)
-	if err != nil {
-		panic(err)
-	}
-
+func setKey(c *ConsulStore, key, tag string, b []byte) {
 	//NOTE: Trim the extra newline character
 	b = bytes.TrimRight(b, "\n")
 
@@ -113,7 +108,7 @@ func rollback(c *ConsulStore, key, tag string) {
 	}
 }
 
-func listVersions(c *ConsulStore, key string) {
+func listVersions(c *ConsulStore, key string) []string {
 	tree := MakeTree(Archive)
 	w := MakeValue(key, nil)
 
@@ -121,7 +116,7 @@ func listVersions(c *ConsulStore, key string) {
 	if err != nil {
 		panic(err)
 	}
-	log.Println(l)
+	return l
 }
 
 func main() {
@@ -138,13 +133,18 @@ func main() {
 		log.Println(string(getKey(c, *getCmdKey)))
 
 	case setCmd.FullCommand():
-		setKey(c, *setCmdKey, *setCmdTag, *setCmdVal)
+		b, err := ioutil.ReadAll(*setCmdVal)
+		if err != nil {
+			panic(err)
+		}
+		setKey(c, *setCmdKey, *setCmdTag, b)
 
 	case rollbackCmd.FullCommand():
 		rollback(c, *rollbackCmdKey, *rollbackCmdTag)
 
 	case listTagCmd.FullCommand():
-		listVersions(c, *listCmdKey)
+		versions := listVersions(c, *listCmdKey)
+		log.Println(versions)
 
 	default:
 		log.Println(app.Help)

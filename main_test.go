@@ -42,49 +42,52 @@ func TestValue(t *testing.T) {
 }
 
 func TestStorageDriver(t *testing.T) {
-	//var consulAddr string
-	//c := MakeConsulStore(consulAddr)
+	c := MakeConsulStore()
+	if err := c.Setup(); err != nil {
+		panic(err)
+	}
 
-	//testKey := ""
-	//testValue := "value"
+	testKey := MakeVersion()
+	oldValue := MakeVersion()
+	newValue := MakeVersion()
+
+	oldTag := "v1"
+	newTag := "v2"
 
 	t.Run("Set a value", func(t *testing.T) {
-		t.Run("Tag defaults to timestamp", func(t *testing.T) {
-			//c.SaveKey()
-		})
-
 		t.Run("Should save as custom tag", func(t *testing.T) {
+			setKey(c, testKey, oldTag, []byte(oldValue))
+			val := getKey(c, testKey)
 
+			assert.Equal(t, string(val), oldValue)
 		})
 	})
 
 	t.Run("Get a value", func(t *testing.T) {
-		t.Run("Should return empty value for non-existent key", func(t *testing.T) {
-
-		})
-
 		t.Run("Should get the value of specified tag", func(t *testing.T) {
-
-		})
-	})
-
-	t.Run("Test Rollback ", func(t *testing.T) {
-		t.Run("Should raise error when rolling back to non-existent tag value", func(t *testing.T) {
-
-		})
-
-		t.Run("Should rollback the latest value to the specified tag value", func(t *testing.T) {
-
+			val := getKey(c, testKey)
+			assert.Equal(t, string(val), oldValue)
 		})
 	})
 
 	t.Run("List tags", func(t *testing.T) {
-		t.Run("Should raise error with non-existent key", func(t *testing.T) {
-
-		})
-
 		t.Run("Should return all tags for the given key", func(t *testing.T) {
+			tags := listVersions(c, testKey)
+			assert.Equal(t, tags, []string{"latest", oldTag})
+		})
+	})
 
+	t.Run("Test Rollback ", func(t *testing.T) {
+		t.Run("Should rollback the latest value to the specified tag value", func(t *testing.T) {
+			setKey(c, testKey, newTag, []byte(newValue))
+			val := getKey(c, testKey)
+
+			assert.Equal(t, string(val), newValue)
+
+			rollback(c, testKey, oldTag)
+			oldVal := getKey(c, testKey)
+
+			assert.Equal(t, string(oldVal), oldValue)
 		})
 	})
 }
