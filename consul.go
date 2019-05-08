@@ -77,33 +77,6 @@ func (e *ConsulStore) gzip(unzipped []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-//func (e *ConsulStore) save(key string, value []byte) error {
-//	gz, err := e.gzip(value)
-//	if err != nil {
-//		return err
-//	}
-//
-//	_, err = e.client.KV().Put(&api.KVPair{Key: key, Value: gz}, nil)
-//	return err
-//}
-
-//func (e *ConsulStore) GetKey(key string) ([]byte, error) {
-//	bytes, err := e.get(key)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	if bytes == nil {
-//		return []byte{}, nil
-//	}
-//
-//	return bytes, err
-//}
-
-//func (e *ConsulStore) SaveKey(key string, value []byte) error {
-//	return e.save(key, value)
-//}
-
 func (e *ConsulStore) GetVersions(reader ReaderWriter, tree *Tree) ([]string, error) {
 	key := reader.MakePath(tree)
 	l, _, err := e.client.KV().Keys(key, "", nil)
