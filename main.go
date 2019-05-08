@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -8,14 +9,11 @@ import (
 	"path"
 	"time"
 
-	"github.com/tsocial/tessellate/storage/types"
-
-	"github.com/tsocial/tessellate/storage/consul"
-
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 const Version = "0.0.1"
+const Archive = "archive"
 
 func timestamp() string {
 	return fmt.Sprintf("%v", time.Now().UnixNano())
@@ -41,27 +39,90 @@ var (
 	listCmdKey = listTagCmd.Arg("key", "Key").Required().String()
 )
 
-type Value []byte
+func MakeValue(key string, value []byte) *Value {
+	return &Value{key: key, storage: value}
+}
+
+type Value struct {
+	storage []byte
+	key     string
+}
 
 func (w *Value) SaveId(string) {}
 
-func (w *Value) MakePath(t *types.Tree) string {
-	return path.Join("archive", t.Name)
+func (w *Value) IsCompressed() bool {
+	return false
+}
+
+func (w *Value) Key() string {
+	return w.key
+}
+
+func (w *Value) MakePath(t *Tree) string {
+	return path.Join(t.MakePath(), w.key)
 }
 
 func (w *Value) Unmarshal(b []byte) error {
-	*w = Value(b)
+	w.storage = b
 	return nil
 }
 
 func (w *Value) Marshal() ([]byte, error) {
-	return []byte(*w), nil
+	return w.storage, nil
+}
+
+func getKey(c *ConsulStore, key string) []byte {
+	tree := MakeTree(Archive)
+	w := MakeValue(key, nil)
+
+	err := c.Get(w, tree)
+	if err != nil {
+		panic(err)
+	}
+	return w.storage
+}
+
+func setKey(c *ConsulStore, key, tag string, b []byte) {
+	//NOTE: Trim the extra newline character
+	b = bytes.TrimRight(b, "\n")
+
+	w := MakeValue(key, b)
+	if err := c.SaveTag(w, MakeTree(Archive), tag); err != nil {
+		panic(err)
+	}
+
+	if err := c.SaveTag(w, nil, tag); err != nil {
+		panic(err)
+	}
+}
+
+func rollback(c *ConsulStore, key, tag string) {
+	tree := MakeTree(Archive)
+	w := MakeValue(key, nil)
+	if err := c.GetVersion(w, tree, tag); err != nil {
+		panic(err)
+	}
+
+	if err := c.SaveTag(w, tree, timestamp()); err != nil {
+		panic(err)
+	}
+}
+
+func listVersions(c *ConsulStore, key string) []string {
+	tree := MakeTree(Archive)
+	w := MakeValue(key, nil)
+
+	l, err := c.GetVersions(w, tree)
+	if err != nil {
+		panic(err)
+	}
+	return l
 }
 
 func main() {
-	log.SetFlags(log.Lshortfile | log.LstdFlags)
 	app.Version(Version)
-	c := consul.MakeConsulStore(*consulAddr)
+
+	c := MakeConsulStore(*consulAddr)
 	if err := c.Setup(); err != nil {
 		panic(err)
 	}
@@ -69,54 +130,21 @@ func main() {
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 
 	case getCmd.FullCommand():
-		b, err := c.GetKey(*getCmdKey)
-		if err != nil {
-			panic(err)
-		}
-		log.Println(string(b))
+		log.Println(string(getKey(c, *getCmdKey)))
 
 	case setCmd.FullCommand():
 		b, err := ioutil.ReadAll(*setCmdVal)
 		if err != nil {
 			panic(err)
 		}
-		// Tree for workspace ID.
-		tree := types.MakeTree(*setCmdKey)
-
-		// Create a new types.Workspace instance to be returned.
-		w := Value(b)
-		if err := c.SaveTag(&w, tree, *setCmdTag); err != nil {
-			panic(err)
-		}
-		// Latest value
-		if err := c.SaveKey(*setCmdKey, b); err != nil {
-			panic(err)
-		}
+		setKey(c, *setCmdKey, *setCmdTag, b)
 
 	case rollbackCmd.FullCommand():
-		tree := types.MakeTree(*rollbackCmdKey)
-		w := Value(nil)
-		if err := c.GetVersion(&w, tree, *rollbackCmdTag); err != nil {
-			panic(err)
-		}
-
-		if err := c.SaveTag(&w, tree, timestamp()); err != nil {
-			panic(err)
-		}
-
-		if err := c.SaveKey(*rollbackCmdKey, []byte(w)); err != nil {
-			panic(err)
-		}
+		rollback(c, *rollbackCmdKey, *rollbackCmdTag)
 
 	case listTagCmd.FullCommand():
-		tree := types.MakeTree(*listCmdKey)
-		w := Value(nil)
-
-		l, err := c.GetVersions(&w, tree)
-		if err != nil {
-			panic(err)
-		}
-		log.Println(l)
+		versions := listVersions(c, *listCmdKey)
+		log.Println(versions)
 
 	default:
 		log.Println(app.Help)
