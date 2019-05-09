@@ -27,16 +27,16 @@ var (
 	getCmdKey = getCmd.Arg("key", "Name to get").Required().String()
 
 	setCmd    = app.Command("set", "Set a key")
-	setCmdKey = setCmd.Arg("key", "Name").Required().String()
+	setCmdKey = setCmd.Arg("key", "Key").Required().String()
 	setCmdTag = setCmd.Flag("tag", "Tag").Default(timestamp()).String()
-	setCmdVal = setCmd.Arg("value", "File").Required().File()
+	setCmdVal = setCmd.Arg("value", "Value").Required().File()
 
-	rollbackCmd    = app.Command("rollbackVersion", "Rollback value of key to a specified tag")
+	rollbackCmd    = app.Command("rollback", "Rollback value of key to a specified tag")
 	rollbackCmdTag = rollbackCmd.Flag("tag", "Tag").Required().String()
-	rollbackCmdKey = rollbackCmd.Arg("key", "Name").Required().String()
+	rollbackCmdKey = rollbackCmd.Arg("key", "Key").Required().String()
 
 	listTagCmd = app.Command("list", "List tags")
-	listCmdKey = listTagCmd.Arg("key", "Name").Required().String()
+	listCmdKey = listTagCmd.Arg("key", "Key").Required().String()
 )
 
 func MakeFile(name string, content []byte) *File {
