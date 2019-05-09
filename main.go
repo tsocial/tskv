@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -9,6 +8,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/tsocial/tskv/storage"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -24,95 +24,101 @@ var (
 	consulAddr = app.Flag("consul", "Consul address").OverrideDefaultFromEnvar("TSKV_CONSUL_ADDR").String()
 
 	getCmd    = app.Command("get", "Get last set value of a key")
-	getCmdKey = getCmd.Arg("key", "Key to get").Required().String()
+	getCmdKey = getCmd.Arg("key", "Name to get").Required().String()
 
 	setCmd    = app.Command("set", "Set a key")
-	setCmdKey = setCmd.Arg("key", "Key").Required().String()
+	setCmdKey = setCmd.Arg("key", "Name").Required().String()
 	setCmdTag = setCmd.Flag("tag", "Tag").Default(timestamp()).String()
-	setCmdVal = setCmd.Arg("value", "Value").Required().File()
+	setCmdVal = setCmd.Arg("value", "File").Required().File()
 
-	rollbackCmd    = app.Command("rollback", "Rollback value of key to a specified tag")
+	rollbackCmd    = app.Command("rollbackVersion", "Rollback value of key to a specified tag")
 	rollbackCmdTag = rollbackCmd.Flag("tag", "Tag").Required().String()
-	rollbackCmdKey = rollbackCmd.Arg("key", "Key").Required().String()
+	rollbackCmdKey = rollbackCmd.Arg("key", "Name").Required().String()
 
 	listTagCmd = app.Command("list", "List tags")
-	listCmdKey = listTagCmd.Arg("key", "Key").Required().String()
+	listCmdKey = listTagCmd.Arg("key", "Name").Required().String()
 )
 
-func MakeValue(key string, value []byte) *Value {
-	return &Value{key: key, storage: value}
+func MakeFile(name string, content []byte) *File {
+	if content == nil {
+		content = []byte{}
+	}
+	return &File{name: name, content: content}
 }
 
-type Value struct {
-	storage []byte
-	key     string
+type File struct {
+	content []byte
+	name    string
 }
 
-func (w *Value) SaveId(string) {}
+func (w *File) UTime(string) {}
 
-func (w *Value) IsCompressed() bool {
+func (w *File) IsCompressed() bool {
 	return false
 }
 
-func (w *Value) Key() string {
-	return w.key
+func (w *File) Name() string {
+	return w.name
 }
 
-func (w *Value) MakePath(t *Tree) string {
-	return path.Join(t.MakePath(), w.key)
+func (w *File) Path(t *storage.Dir) string {
+	return path.Join(t.Path(), w.name)
 }
 
-func (w *Value) Unmarshal(b []byte) error {
-	w.storage = b
+func (w *File) Write(b []byte) error {
+	if b == nil {
+		b = []byte{}
+	}
+	w.content = b
 	return nil
 }
 
-func (w *Value) Marshal() ([]byte, error) {
-	return w.storage, nil
+func (w *File) Read() ([]byte, error) {
+	return w.content, nil
 }
 
-func getKey(c *ConsulStore, key string) []byte {
-	tree := MakeTree(Archive)
-	w := MakeValue(key, nil)
+func getFile(c storage.Storer, name string) []byte {
+	w := MakeFile(name, nil)
 
-	err := c.Get(w, tree)
+	err := c.Get(w, storage.MakeDir())
 	if err != nil {
 		panic(err)
 	}
-	return w.storage
+	return w.content
 }
 
-func setKey(c *ConsulStore, key, tag string, b []byte) {
-	//NOTE: Trim the extra newline character
-	b = bytes.TrimRight(b, "\n")
-
-	w := MakeValue(key, b)
-	if err := c.SaveTag(w, MakeTree(Archive), tag); err != nil {
+func createFile(c storage.Storer, name, version string, b []byte) {
+	w := MakeFile(name, b)
+	if err := c.SaveTag(w, storage.MakeDir(Archive), version); err != nil {
 		panic(err)
 	}
 
-	if err := c.SaveTag(w, nil, tag); err != nil {
+	if err := c.SaveTag(w, storage.MakeDir(), version); err != nil {
 		panic(err)
 	}
 }
 
-func rollback(c *ConsulStore, key, tag string) {
-	tree := MakeTree(Archive)
-	w := MakeValue(key, nil)
-	if err := c.GetVersion(w, tree, tag); err != nil {
+func rollbackVersion(c storage.Storer, name, version string) {
+	dir := storage.MakeDir(Archive)
+	w := MakeFile(name, nil)
+	if err := c.GetVersion(w, dir, version); err != nil {
 		panic(err)
 	}
 
-	if err := c.SaveTag(w, tree, timestamp()); err != nil {
+	if err := c.SaveTag(w, dir, timestamp()); err != nil {
+		panic(err)
+	}
+
+	if err := c.SaveTag(w, storage.MakeDir(), version); err != nil {
 		panic(err)
 	}
 }
 
-func listVersions(c *ConsulStore, key string) []string {
-	tree := MakeTree(Archive)
-	w := MakeValue(key, nil)
+func listVersions(c storage.Storer, name string) []string {
+	dir := storage.MakeDir(Archive)
+	w := MakeFile(name, nil)
 
-	l, err := c.GetVersions(w, tree)
+	l, err := c.GetVersions(w, dir)
 	if err != nil {
 		panic(err)
 	}
@@ -122,7 +128,7 @@ func listVersions(c *ConsulStore, key string) []string {
 func main() {
 	app.Version(Version)
 
-	c := MakeConsulStore(*consulAddr)
+	c := storage.MakeConsulStore(*consulAddr)
 	if err := c.Setup(); err != nil {
 		panic(err)
 	}
@@ -130,17 +136,17 @@ func main() {
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 
 	case getCmd.FullCommand():
-		log.Println(string(getKey(c, *getCmdKey)))
+		log.Println(string(getFile(c, *getCmdKey)))
 
 	case setCmd.FullCommand():
 		b, err := ioutil.ReadAll(*setCmdVal)
 		if err != nil {
 			panic(err)
 		}
-		setKey(c, *setCmdKey, *setCmdTag, b)
+		createFile(c, *setCmdKey, *setCmdTag, b)
 
 	case rollbackCmd.FullCommand():
-		rollback(c, *rollbackCmdKey, *rollbackCmdTag)
+		rollbackVersion(c, *rollbackCmdKey, *rollbackCmdTag)
 
 	case listTagCmd.FullCommand():
 		versions := listVersions(c, *listCmdKey)

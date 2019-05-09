@@ -1,17 +1,14 @@
-package main
+package storage
 
 import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"path"
-
-	"time"
-
-	"fmt"
-
 	"strings"
+	"time"
 
 	"github.com/hashicorp/consul/api"
 	"github.com/pkg/errors"
@@ -26,7 +23,7 @@ type ConsulStore struct {
 	client *api.Client
 }
 
-func (e *ConsulStore) get(key string, reader ReaderWriter) ([]byte, error) {
+func (e *ConsulStore) get(key string, f FileHandler) ([]byte, error) {
 	b, _, err := e.client.KV().Get(key, nil)
 	if err != nil {
 		return nil, err
@@ -43,7 +40,7 @@ func (e *ConsulStore) get(key string, reader ReaderWriter) ([]byte, error) {
 	}
 
 	// When the content is gzipped
-	if reader.IsCompressed() {
+	if f.IsCompressed() {
 		r, err := gzip.NewReader(bytes.NewReader(b.Value))
 		if err != nil {
 			return nil, fmt.Errorf("invalid gzip or json")
@@ -77,8 +74,41 @@ func (e *ConsulStore) gzip(unzipped []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (e *ConsulStore) GetVersions(reader ReaderWriter, tree *Tree) ([]string, error) {
-	key := reader.MakePath(tree)
+func (e *ConsulStore) Get(f FileHandler, dir *Dir) error {
+	return e.GetVersion(f, dir, Latest)
+}
+
+func (e *ConsulStore) GetKeys(prefix string, separator string) ([]string, error) {
+	l, _, err := e.client.KV().Keys(prefix, separator, nil)
+	return l, err
+}
+
+func (e *ConsulStore) GetVersion(f FileHandler, dir *Dir, version string) error {
+	// Same as getKey
+	p := f.Name()
+	if dir != nil {
+		p = path.Join(f.Path(dir), version)
+	}
+
+	// Get the vars for the layout.
+	b, err := e.get(p, f)
+	if err != nil {
+		return errors.Wrapf(err, "Cannot fetch object for %v", p)
+	}
+
+	//if b == nil || len(b) == 0 {
+	//	return errors.Errorf("Missing Name %v", p)
+	//}
+
+	if err := f.Write(b); err != nil {
+		return errors.Wrap(err, "Cannot unmarshal data into Reader")
+	}
+
+	return nil
+}
+
+func (e *ConsulStore) GetVersions(f FileHandler, dir *Dir) ([]string, error) {
+	key := f.Path(dir)
 	l, _, err := e.client.KV().Keys(key, "", nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot list %v", key)
@@ -97,34 +127,6 @@ func (e *ConsulStore) GetVersions(reader ReaderWriter, tree *Tree) ([]string, er
 	return keys, nil
 }
 
-func (e *ConsulStore) Get(reader ReaderWriter, tree *Tree) error {
-	return e.GetVersion(reader, tree, "latest")
-}
-
-func (e *ConsulStore) GetKeys(prefix string, separator string) ([]string, error) {
-	l, _, err := e.client.KV().Keys(prefix, separator, nil)
-	return l, err
-}
-
-func (e *ConsulStore) GetVersion(reader ReaderWriter, tree *Tree, version string) error {
-	path := path.Join(reader.MakePath(tree), version)
-	// Get the vars for the layout.
-	bytes, err := e.get(path, reader)
-	if err != nil {
-		return errors.Wrapf(err, "Cannot fetch object for %v", path)
-	}
-
-	if bytes == nil || len(bytes) == 0 {
-		return errors.Errorf("Missing Key %v", path)
-	}
-
-	if err := reader.Unmarshal(bytes); err != nil {
-		return errors.Wrap(err, "Cannot unmarshal data into Reader")
-	}
-
-	return nil
-}
-
 // Internal method to save Any data under a hierarchy that follows revision control.
 // Example: In a workspace staging, you wish to save a new layout called dc1
 // saveRevision("staging", "layout", "dc1", {....}) will try to save the following structure
@@ -132,39 +134,37 @@ func (e *ConsulStore) GetVersion(reader ReaderWriter, tree *Tree, version string
 // workspace/layouts/dc1/new_timestamp
 // NOTE: This is an atomic operation, so either everything is written or nothing is.
 // The operation may take its own sweet time before a quorum write is guaranteed.
-func (e *ConsulStore) Save(source ReaderWriter, tree *Tree) error {
+func (e *ConsulStore) Save(source FileHandler, dir *Dir) error {
 	ts := time.Now().UnixNano()
-	return e.SaveTag(source, tree, fmt.Sprintf("%+v", ts))
+	return e.SaveTag(source, dir, fmt.Sprintf("%+v", ts))
 }
 
-func (e *ConsulStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error {
-	b, err := source.Marshal()
+func (e *ConsulStore) SaveTag(f FileHandler, dir *Dir, ts string) error {
+	b, err := f.Read()
 	if err != nil {
-		return errors.Wrap(err, "Cannot Marshal vars")
+		return errors.Wrap(err, "Cannot Read vars")
 	}
 
-	var items []string
+	items := []string{f.Name()}
 
-	if tree == nil {
-		items = []string{source.Key()}
-	} else {
-		p := source.MakePath(tree)
+	if dir != nil {
+		p := f.Path(dir)
 		items = []string{
-			path.Join(p, "latest"),
+			path.Join(p, Latest),
 			path.Join(p, ts),
 		}
 	}
 
-	session := MakeVersion()
+	session := GenerateUuid()
 
-	lock, err := e.client.LockKey(path.Join(source.Key(), "lock"))
+	lock, err := e.client.LockKey(path.Join(f.Name(), "lock"))
 	if err != nil {
 		return errors.Wrap(err, "Cannot Lock key")
 	}
 	defer lock.Unlock()
 
 	var gz = b
-	if source.IsCompressed() {
+	if f.IsCompressed() {
 		gz, err = e.gzip(b)
 		if err != nil {
 			return err
@@ -188,9 +188,14 @@ func (e *ConsulStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error 
 		return errors.New("Txn was rolled back. Weird, huh!")
 	}
 
-	source.SaveId(fmt.Sprintf("%v", ts))
+	f.UTime(fmt.Sprintf("%v", ts))
 
 	return nil
+}
+
+func (e *ConsulStore) DeleteKeys(prefix string) error {
+	_, err := e.client.KV().DeleteTree(prefix+"/", &api.WriteOptions{})
+	return err
 }
 
 func (e *ConsulStore) Setup() error {
@@ -205,6 +210,10 @@ func (e *ConsulStore) Setup() error {
 	}
 
 	e.client = client
+	return nil
+}
+
+func (e *ConsulStore) Teardown() error {
 	return nil
 }
 
@@ -235,13 +244,4 @@ func (e *ConsulStore) Unlock(key string) error {
 	}
 
 	return nil
-}
-
-func (e *ConsulStore) Teardown() error {
-	return nil
-}
-
-func (e *ConsulStore) DeleteKeys(prefix string) error {
-	_, err := e.client.KV().DeleteTree(prefix+"/", &api.WriteOptions{})
-	return err
 }
