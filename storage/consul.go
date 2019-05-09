@@ -23,7 +23,7 @@ type ConsulStore struct {
 	client *api.Client
 }
 
-func (e *ConsulStore) get(key string, reader ReaderWriter) ([]byte, error) {
+func (e *ConsulStore) get(key string, f FileHandler) ([]byte, error) {
 	b, _, err := e.client.KV().Get(key, nil)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func (e *ConsulStore) get(key string, reader ReaderWriter) ([]byte, error) {
 	}
 
 	// When the content is gzipped
-	if reader.IsCompressed() {
+	if f.IsCompressed() {
 		r, err := gzip.NewReader(bytes.NewReader(b.Value))
 		if err != nil {
 			return nil, fmt.Errorf("invalid gzip or json")
@@ -74,8 +74,8 @@ func (e *ConsulStore) gzip(unzipped []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (e *ConsulStore) Get(reader ReaderWriter, tree *Tree) error {
-	return e.GetVersion(reader, tree, Latest)
+func (e *ConsulStore) Get(f FileHandler, dir *Dir) error {
+	return e.GetVersion(f, dir, Latest)
 }
 
 func (e *ConsulStore) GetKeys(prefix string, separator string) ([]string, error) {
@@ -83,32 +83,32 @@ func (e *ConsulStore) GetKeys(prefix string, separator string) ([]string, error)
 	return l, err
 }
 
-func (e *ConsulStore) GetVersion(reader ReaderWriter, tree *Tree, version string) error {
+func (e *ConsulStore) GetVersion(f FileHandler, dir *Dir, version string) error {
 	// Same as getKey
-	p := reader.Key()
-	if tree != nil {
-		p = path.Join(reader.MakePath(tree), version)
+	p := f.Name()
+	if dir != nil {
+		p = path.Join(f.Path(dir), version)
 	}
 
 	// Get the vars for the layout.
-	b, err := e.get(p, reader)
+	b, err := e.get(p, f)
 	if err != nil {
 		return errors.Wrapf(err, "Cannot fetch object for %v", p)
 	}
 
 	//if b == nil || len(b) == 0 {
-	//	return errors.Errorf("Missing Key %v", p)
+	//	return errors.Errorf("Missing Name %v", p)
 	//}
 
-	if err := reader.Unmarshal(b); err != nil {
+	if err := f.Write(b); err != nil {
 		return errors.Wrap(err, "Cannot unmarshal data into Reader")
 	}
 
 	return nil
 }
 
-func (e *ConsulStore) GetVersions(reader ReaderWriter, tree *Tree) ([]string, error) {
-	key := reader.MakePath(tree)
+func (e *ConsulStore) GetVersions(f FileHandler, dir *Dir) ([]string, error) {
+	key := f.Path(dir)
 	l, _, err := e.client.KV().Keys(key, "", nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot list %v", key)
@@ -134,21 +134,21 @@ func (e *ConsulStore) GetVersions(reader ReaderWriter, tree *Tree) ([]string, er
 // workspace/layouts/dc1/new_timestamp
 // NOTE: This is an atomic operation, so either everything is written or nothing is.
 // The operation may take its own sweet time before a quorum write is guaranteed.
-func (e *ConsulStore) Save(source ReaderWriter, tree *Tree) error {
+func (e *ConsulStore) Save(source FileHandler, dir *Dir) error {
 	ts := time.Now().UnixNano()
-	return e.SaveTag(source, tree, fmt.Sprintf("%+v", ts))
+	return e.SaveTag(source, dir, fmt.Sprintf("%+v", ts))
 }
 
-func (e *ConsulStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error {
-	b, err := source.Marshal()
+func (e *ConsulStore) SaveTag(f FileHandler, dir *Dir, ts string) error {
+	b, err := f.Read()
 	if err != nil {
-		return errors.Wrap(err, "Cannot Marshal vars")
+		return errors.Wrap(err, "Cannot Read vars")
 	}
 
-	items := []string{source.Key()}
+	items := []string{f.Name()}
 
-	if tree != nil {
-		p := source.MakePath(tree)
+	if dir != nil {
+		p := f.Path(dir)
 		items = []string{
 			path.Join(p, Latest),
 			path.Join(p, ts),
@@ -157,14 +157,14 @@ func (e *ConsulStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error 
 
 	session := GenerateUuid()
 
-	lock, err := e.client.LockKey(path.Join(source.Key(), "lock"))
+	lock, err := e.client.LockKey(path.Join(f.Name(), "lock"))
 	if err != nil {
 		return errors.Wrap(err, "Cannot Lock key")
 	}
 	defer lock.Unlock()
 
 	var gz = b
-	if source.IsCompressed() {
+	if f.IsCompressed() {
 		gz, err = e.gzip(b)
 		if err != nil {
 			return err
@@ -188,7 +188,7 @@ func (e *ConsulStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error 
 		return errors.New("Txn was rolled back. Weird, huh!")
 	}
 
-	source.SaveId(fmt.Sprintf("%v", ts))
+	f.UTime(fmt.Sprintf("%v", ts))
 
 	return nil
 }

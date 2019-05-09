@@ -8,16 +8,16 @@ import (
 
 const Latest = "latest"
 
-// Tree is a Hierarchical representation of a Path at which a node is expected to be found.
-type Tree struct {
+// Dir is a Hierarchical representation of a Path at which a node is expected to be found.
+type Dir struct {
 	Name  string
-	Child *Tree
+	Child *Dir
 }
 
-func (n *Tree) MakePath() string {
+func (n *Dir) Path() string {
 	d := n.Name
 	if n.Child != nil {
-		d = path.Join(d, n.Child.MakePath())
+		d = path.Join(d, n.Child.Path())
 	}
 	return d
 }
@@ -25,38 +25,38 @@ func GenerateUuid() string {
 	return uuid.NewV4().String()
 }
 
-func MakeTree(nodes ...string) *Tree {
+func MakeDir(nodes ...string) *Dir {
 	if len(nodes) < 1 {
-		return &Tree{Name: "unknown"}
+		return &Dir{Name: "unknown"}
 	}
 
-	t := Tree{Name: nodes[0]}
+	t := Dir{Name: nodes[0]}
 	if len(nodes) > 1 {
-		t.Child = MakeTree(nodes[1:]...)
+		t.Child = MakeDir(nodes[1:]...)
 	}
 
 	return &t
 }
 
-type ReaderWriter interface {
-	Key() string
-	MakePath(tree *Tree) string
-	Marshal() ([]byte, error)
-	Unmarshal([]byte) error
-	SaveId(string)
+type FileHandler interface {
+	Name() string
+	Path(dir *Dir) string
+	Read() ([]byte, error)
+	Write([]byte) error
+	UTime(string)
 	IsCompressed() bool
 }
 
-type Store interface {
+type Storer interface {
 	Setup() error
 	Teardown() error
 
-	Get(reader ReaderWriter, tree *Tree) error
+	Get(file FileHandler, dir *Dir) error
 	GetKeys(prefix string, separator string) ([]string, error)
-	GetVersion(reader ReaderWriter, tree *Tree, version string) error
-	GetVersions(reader ReaderWriter, tree *Tree) ([]string, error)
-	Save(reader ReaderWriter, tree *Tree) error
-	SaveTag(reader ReaderWriter, tree *Tree, ts string) error
+	GetVersion(file FileHandler, dir *Dir, version string) error
+	GetVersions(file FileHandler, dir *Dir) ([]string, error)
+	Save(file FileHandler, dir *Dir) error
+	SaveTag(file FileHandler, dir *Dir, ts string) error
 	DeleteKeys(prefix string) error
 
 	Lock(key, s string) error

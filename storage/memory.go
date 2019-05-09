@@ -55,29 +55,29 @@ func (e *BoltStore) GetKeys(prefix string, separator string) ([]string, error) {
 	return akeys, err
 }
 
-// Get gets the latest version of a Key.
+// Get gets the latest version of a Name.
 // Refer to GetVersion for more internal details.
-func (e *BoltStore) Get(reader ReaderWriter, tree *Tree) error {
-	return e.GetVersion(reader, tree, Latest)
+func (e *BoltStore) Get(f FileHandler, dir *Dir) error {
+	return e.GetVersion(f, dir, Latest)
 }
 
-// GetVersion gets the specific version of a Key.
-// Raises error if Key is absent.
-func (e *BoltStore) GetVersion(reader ReaderWriter, tree *Tree, version string) error {
+// GetVersion gets the specific version of a Name.
+// Raises error if Name is absent.
+func (e *BoltStore) GetVersion(f FileHandler, dir *Dir, version string) error {
 	// Same as getKey
-	p := reader.Key()
-	if tree != nil {
-		p = path.Join(reader.MakePath(tree), version)
+	p := f.Name()
+	if dir != nil {
+		p = path.Join(f.Path(dir), version)
 	}
 
 	return e.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(e.bucket)
 		bs := b.Get([]byte(p))
 		//if bs == nil {
-		//	return errors.Errorf("Missing Key %v", p)
+		//	return errors.Errorf("Missing Name %v", p)
 		//}
 
-		if err := reader.Unmarshal(bs); err != nil {
+		if err := f.Write(bs); err != nil {
 			return errors.Wrap(err, "Cannot unmarshal data into Reader")
 		}
 		return nil
@@ -85,13 +85,13 @@ func (e *BoltStore) GetVersion(reader ReaderWriter, tree *Tree, version string) 
 }
 
 //GetVersions returns an array of all versions that are available for a given key.
-func (e *BoltStore) GetVersions(reader ReaderWriter, tree *Tree) ([]string, error) {
+func (e *BoltStore) GetVersions(f FileHandler, dir *Dir) ([]string, error) {
 	keys := []string{}
 	err := e.db.View(func(tx *bolt.Tx) error {
 		// Assume bucket exists and has keys
 		c := tx.Bucket(e.bucket).Cursor()
 
-		key := reader.MakePath(tree)
+		key := f.Path(dir)
 		prefix := []byte(key)
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			splitByKey := strings.SplitAfter(string(k), key+"/")
@@ -115,23 +115,23 @@ func (e *BoltStore) GetVersions(reader ReaderWriter, tree *Tree) ([]string, erro
 // workspace/layouts/dc1/new_timestamp
 // NOTE: This is an atomic operation, so either everything is written or nothing is.
 // The operation may take its own sweet time before a quorum write is guaranteed.
-func (e *BoltStore) Save(source ReaderWriter, tree *Tree) error {
+func (e *BoltStore) Save(source FileHandler, dir *Dir) error {
 	ts := time.Now().UnixNano()
-	return e.SaveTag(source, tree, fmt.Sprintf("%+v", ts))
+	return e.SaveTag(source, dir, fmt.Sprintf("%+v", ts))
 }
 
-func (e *BoltStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error {
-	b, err := source.Marshal()
+func (e *BoltStore) SaveTag(source FileHandler, dir *Dir, ts string) error {
+	b, err := source.Read()
 	if err != nil {
-		return errors.Wrap(err, "Cannot Marshal vars")
+		return errors.Wrap(err, "Cannot Read vars")
 	}
 
 	var items []string
 
-	if tree == nil {
-		items = []string{source.Key()}
+	if dir == nil {
+		items = []string{source.Name()}
 	} else {
-		p := source.MakePath(tree)
+		p := source.Path(dir)
 		items = []string{
 			path.Join(p, Latest),
 			path.Join(p, ts),
@@ -151,7 +151,7 @@ func (e *BoltStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error {
 		return errors.New("Txn was rolled back. Weird, huh")
 	}
 
-	source.SaveId(fmt.Sprintf("%v", ts))
+	source.UTime(fmt.Sprintf("%v", ts))
 
 	return nil
 }
@@ -188,7 +188,7 @@ func (e *BoltStore) Lock(key, s string) error {
 		if len(bucket.Get([]byte(key))) == 0 {
 			return bucket.Put([]byte(key), []byte(s))
 		}
-		return errors.Errorf("Key %v is already locked", key)
+		return errors.Errorf("Name %v is already locked", key)
 	})
 }
 

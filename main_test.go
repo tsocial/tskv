@@ -9,27 +9,27 @@ import (
 )
 
 func TestValue(t *testing.T) {
-	t.Run("Value", func(t *testing.T) {
-		tr := storage.MakeTree("a", "b")
-		v := MakeValue("k", []byte("b"))
+	t.Run("File", func(t *testing.T) {
+		tr := storage.MakeDir("a", "b")
+		v := MakeFile("k", []byte("b"))
 
 		nb := []byte("b2")
 
 		t.Run("return path in a tree", func(t *testing.T) {
-			assert.Equal(t, v.MakePath(tr), "a/b/k")
+			assert.Equal(t, v.Path(tr), "a/b/k")
 		})
 
-		t.Run("Unmarshal changes bytes", func(t *testing.T) {
+		t.Run("Write changes bytes", func(t *testing.T) {
 
-			if err := v.Unmarshal(nb); err != nil {
+			if err := v.Write(nb); err != nil {
 				t.Error(err)
 			}
 
-			assert.Equal(t, v.storage, nb)
+			assert.Equal(t, v.content, nb)
 		})
 
-		t.Run("Marshal returns the bytes", func(t *testing.T) {
-			b, err := v.Marshal()
+		t.Run("Read returns the bytes", func(t *testing.T) {
+			b, err := v.Read()
 			if err != nil {
 				t.Error(err)
 			}
@@ -37,8 +37,8 @@ func TestValue(t *testing.T) {
 			assert.Equal(t, b, nb)
 		})
 
-		t.Run("Key isn't lying", func(t *testing.T) {
-			assert.Equal(t, v.Key(), "k")
+		t.Run("Name isn't lying", func(t *testing.T) {
+			assert.Equal(t, v.Name(), "k")
 		})
 	})
 }
@@ -75,7 +75,7 @@ func TestStorageDriver(t *testing.T) {
 	})
 
 	t.Run("List tags", func(t *testing.T) {
-		t.Run("Should return all tags for the given key", func(t *testing.T) {
+		t.Run("Should return all tags for the given name", func(t *testing.T) {
 			tags := listVersions(store, testKey)
 			assert.Equal(t, tags, []string{"latest", oldTag})
 		})

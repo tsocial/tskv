@@ -9,68 +9,68 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var store Store
+var store Storer
 
-func MakeValue(key string, value []byte) *Value {
-	return &Value{key: key, storage: value}
+func MakeFile(name string, content []byte) *File {
+	return &File{name: name, content: content}
 }
 
-type Value struct {
-	storage []byte
-	key     string
+type File struct {
+	content []byte
+	name    string
 }
 
-func (w *Value) SaveId(string) {}
+func (w *File) UTime(string) {}
 
-func (w *Value) IsCompressed() bool {
+func (w *File) IsCompressed() bool {
 	return false
 }
 
-func (w *Value) Key() string {
-	return w.key
+func (w *File) Name() string {
+	return w.name
 }
 
-func (w *Value) MakePath(t *Tree) string {
-	return path.Join(t.MakePath(), w.key)
+func (w *File) Path(t *Dir) string {
+	return path.Join(t.Path(), w.name)
 }
 
-func (w *Value) Unmarshal(b []byte) error {
-	w.storage = b
+func (w *File) Write(b []byte) error {
+	w.content = b
 	return nil
 }
 
-func (w *Value) Marshal() ([]byte, error) {
-	return w.storage, nil
+func (w *File) Read() ([]byte, error) {
+	return w.content, nil
 }
 
 func TestStore(t *testing.T) {
 	t.Run("Lock tests", func(t *testing.T) {
-		t.Run("Lock a Key", func(t *testing.T) {
+		t.Run("Lock a Name", func(t *testing.T) {
 			err := store.Lock("key3", "c1")
 			assert.Nil(t, err)
 		})
 
-		t.Run("Un-Idempotent Lock a Key", func(t *testing.T) {
+		t.Run("Un-Idempotent Lock a Name", func(t *testing.T) {
 			err := store.Lock("key3", "c12")
 			assert.NotNil(t, err, "Should have raised a key")
 		})
 
-		t.Run("Release a Key", func(t *testing.T) {
+		t.Run("Release a Name", func(t *testing.T) {
 			err := store.Unlock("key3")
 			assert.Nil(t, err)
 		})
 
-		t.Run("Idempotent Release a Key", func(t *testing.T) {
+		t.Run("Idempotent Release a Name", func(t *testing.T) {
 			err := store.Unlock("key3")
 			assert.Nil(t, err)
 		})
 	})
 
 	t.Run("Storage tests", func(t *testing.T) {
-		tree := MakeTree("store_tree")
+		tree := MakeDir("store_tree")
 
 		wid := fmt.Sprintf("alibaba-%s", GenerateUuid())
-		workspace := MakeValue(wid, nil)
+		workspace := MakeFile(wid, nil)
 
 		t.Run("Workspace does not exist", func(t *testing.T) {
 			err := store.Get(workspace, tree)
@@ -100,7 +100,7 @@ func TestStore(t *testing.T) {
 		})
 
 		//t.Run("Save Layout", func(t *testing.T) {
-		//	tree := types.MakeTree(wid)
+		//	tree := types.MakeDir(wid)
 		//	l := types.Layout{
 		//		Id:   "test-hello",
 		//		Plan: map[string]json.RawMessage{},
@@ -109,7 +109,7 @@ func TestStore(t *testing.T) {
 		//	err := store.Save(&l, tree)
 		//	assert.Nil(t, err)
 		//
-		//	lTree := types.MakeTree(wid, "test-hello")
+		//	lTree := types.MakeDir(wid, "test-hello")
 		//	v := types.Vars(map[string]interface{}{})
 		//	err = store.Save(&v, lTree)
 		//	assert.Nil(t, err)
@@ -120,7 +120,7 @@ func TestStore(t *testing.T) {
 		//	assert.Equal(t, 2, len(x))
 		//})
 
-		//t.Run("Get absent Key", func(t *testing.T) {
+		//t.Run("Get absent Name", func(t *testing.T) {
 		//	w := MakeValue("hello/world", nil)
 		//
 		//	err := store.Get(w, nil)
@@ -129,7 +129,7 @@ func TestStore(t *testing.T) {
 		//	assert.Equal(t, []byte{}, w.storage)
 		//})
 		//
-		//t.Run("Get Valid Key", func(t *testing.T) {
+		//t.Run("Get Valid Name", func(t *testing.T) {
 		//	key := fmt.Sprintf("workspaces/%v/latest", wid)
 		//	w := MakeValue(key, nil)
 		//	err := store.Get(w, nil)
@@ -152,42 +152,42 @@ func TestStore(t *testing.T) {
 			}
 		})
 
-		t.Run("Save and Get Key", func(t *testing.T) {
+		t.Run("Save and Get Name", func(t *testing.T) {
 			key := GenerateUuid()
 			val := GenerateUuid()
 
-			w := MakeValue(key, []byte(val))
+			w := MakeFile(key, []byte(val))
 			err := store.Save(w, nil)
 
 			assert.Nil(t, err)
 
 			gerr := store.Get(w, nil)
 			assert.Nil(t, gerr)
-			assert.Equal(t, val, string(w.storage))
+			assert.Equal(t, val, string(w.content))
 		})
 	})
 }
 
 func TestTree(t *testing.T) {
 	t.Run("Test Trees", func(t *testing.T) {
-		t.Run("Empty Tree", func(t *testing.T) {
-			x := MakeTree()
-			assert.Equal(t, x.MakePath(), "unknown")
+		t.Run("Empty Dir", func(t *testing.T) {
+			x := MakeDir()
+			assert.Equal(t, x.Path(), "unknown")
 		})
 
 		t.Run("One node", func(t *testing.T) {
-			x := MakeTree("a")
-			assert.Equal(t, x.MakePath(), "a")
+			x := MakeDir("a")
+			assert.Equal(t, x.Path(), "a")
 		})
 
 		t.Run("Even node", func(t *testing.T) {
-			x := MakeTree("a", "b")
-			assert.Equal(t, x.MakePath(), "a/b")
+			x := MakeDir("a", "b")
+			assert.Equal(t, x.Path(), "a/b")
 		})
 
 		t.Run("Odd Nodes", func(t *testing.T) {
-			x := MakeTree("a", "b", "c")
-			assert.Equal(t, x.MakePath(), "a/b/c")
+			x := MakeDir("a", "b", "c")
+			assert.Equal(t, x.Path(), "a/b/c")
 		})
 	})
 }
