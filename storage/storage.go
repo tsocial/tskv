@@ -53,7 +53,7 @@ type Storer interface {
 
 	Get(file FileHandler, dir *Dir) error
 	GetKeys(prefix string, separator string) ([]string, error)
-	GetVersion(file FileHandler, dir *Dir, version string) (string, error)
+	GetVersion(file FileHandler, dir *Dir, version string) error
 	GetVersions(file FileHandler, dir *Dir) ([]string, error)
 	Save(file FileHandler, dir *Dir) error
 	SaveTag(file FileHandler, dir *Dir, ts string) error
