@@ -23,20 +23,20 @@ var (
 	app        = kingpin.New("tskv", "")
 	consulAddr = app.Flag("consul", "Consul address").OverrideDefaultFromEnvar("TSKV_CONSUL_ADDR").String()
 
-	getCmd    = app.Command("get", "Get last set value of a name")
-	getCmdKey = getCmd.Arg("name", "Name to get").Required().String()
+	getCmd    = app.Command("get", "Get last set value of a key")
+	getCmdKey = getCmd.Arg("key", "Name to get").Required().String()
 
-	setCmd    = app.Command("set", "Set a name")
-	setCmdKey = setCmd.Arg("name", "Name").Required().String()
+	setCmd    = app.Command("set", "Set a key")
+	setCmdKey = setCmd.Arg("key", "Name").Required().String()
 	setCmdTag = setCmd.Flag("tag", "Tag").Default(timestamp()).String()
 	setCmdVal = setCmd.Arg("value", "File").Required().File()
 
-	rollbackCmd    = app.Command("rollbackVersion", "Rollback value of name to a specified tag")
+	rollbackCmd    = app.Command("rollbackVersion", "Rollback value of key to a specified tag")
 	rollbackCmdTag = rollbackCmd.Flag("tag", "Tag").Required().String()
-	rollbackCmdKey = rollbackCmd.Arg("name", "Name").Required().String()
+	rollbackCmdKey = rollbackCmd.Arg("key", "Name").Required().String()
 
 	listTagCmd = app.Command("list", "List tags")
-	listCmdKey = listTagCmd.Arg("name", "Name").Required().String()
+	listCmdKey = listTagCmd.Arg("key", "Name").Required().String()
 )
 
 func MakeFile(name string, content []byte) *File {
