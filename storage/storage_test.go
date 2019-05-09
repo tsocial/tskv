@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"log"
 	"path"
 	"strings"
 	"testing"
@@ -13,6 +12,9 @@ import (
 var store Storer
 
 func MakeFile(name string, content []byte) *File {
+	if content == nil {
+		content = []byte{}
+	}
 	return &File{name: name, content: content}
 }
 
@@ -36,6 +38,9 @@ func (w *File) Path(t *Dir) string {
 }
 
 func (w *File) Write(b []byte) error {
+	if b == nil {
+		b = []byte{}
+	}
 	w.content = b
 	return nil
 }
@@ -100,45 +105,22 @@ func TestStore(t *testing.T) {
 			assert.Contains(t, strings.Join(v, ""), "latest")
 		})
 
-		//t.Run("Save Layout", func(t *testing.T) {
-		//	tree := types.MakeDir(wid)
-		//	l := types.Layout{
-		//		Id:   "test-hello",
-		//		Plan: map[string]json.RawMessage{},
-		//	}
-		//
-		//	err := store.Save(&l, tree)
-		//	assert.Nil(t, err)
-		//
-		//	lTree := types.MakeDir(wid, "test-hello")
-		//	v := types.Vars(map[string]interface{}{})
-		//	err = store.Save(&v, lTree)
-		//	assert.Nil(t, err)
-		//
-		//	x, err := store.GetVersions(&l, tree)
-		//	assert.Nil(t, err)
-		//
-		//	assert.Equal(t, 2, len(x))
-		//})
+		t.Run("Get absent Name", func(t *testing.T) {
+			w := MakeFile("hello/world", nil)
 
-		//t.Run("Get absent Name", func(t *testing.T) {
-		//	w := MakeValue("hello/world", nil)
-		//
-		//	err := store.Get(w, nil)
-		//	assert.Nil(t, err)
-		//	log.Printf("Absent w: %+v", w)
-		//	assert.Equal(t, []byte{}, w.storage)
-		//})
-		//
-		//t.Run("Get Valid Name", func(t *testing.T) {
-		//	key := fmt.Sprintf("workspaces/%v/latest", wid)
-		//	w := MakeValue(key, nil)
-		//	err := store.Get(w, nil)
-		//
-		//	assert.Nil(t, err)
-		//	log.Printf("Present w: %+v", w)
-		//	assert.Equal(t, []uint8([]byte{}), w.storage)
-		//})
+			err := store.Get(w, nil)
+			assert.Nil(t, err)
+			assert.Equal(t, []byte{}, w.content)
+		})
+
+		t.Run("Get Valid Name", func(t *testing.T) {
+			key := fmt.Sprintf("workspaces/%v/latest", wid)
+			w := MakeFile(key, nil)
+			err := store.Get(w, nil)
+
+			assert.Nil(t, err)
+			assert.Equal(t, []byte{}, w.content)
+		})
 
 		t.Run("Get Keys", func(t *testing.T) {
 			prefix := "workspaces/"
@@ -173,8 +155,7 @@ func TestTree(t *testing.T) {
 	t.Run("Test Trees", func(t *testing.T) {
 		t.Run("Empty Dir", func(t *testing.T) {
 			x := MakeDir()
-			log.Printf("%+v", x)
-			assert.Equal(t, x, nil)
+			assert.Nil(t, x, "Should be nil")
 		})
 
 		t.Run("One node", func(t *testing.T) {

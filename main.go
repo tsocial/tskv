@@ -40,6 +40,9 @@ var (
 )
 
 func MakeFile(name string, content []byte) *File {
+	if content == nil {
+		content = []byte{}
+	}
 	return &File{name: name, content: content}
 }
 
@@ -63,6 +66,9 @@ func (w *File) Path(t *storage.Dir) string {
 }
 
 func (w *File) Write(b []byte) error {
+	if b == nil {
+		b = []byte{}
+	}
 	w.content = b
 	return nil
 }
