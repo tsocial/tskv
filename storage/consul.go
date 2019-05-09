@@ -74,28 +74,8 @@ func (e *ConsulStore) gzip(unzipped []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (e *ConsulStore) GetVersions(reader ReaderWriter, tree *Tree) ([]string, error) {
-	key := reader.MakePath(tree)
-	l, _, err := e.client.KV().Keys(key, "", nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot list %v", key)
-	}
-
-	var keys []string
-	for _, k := range l {
-		splitByKey := strings.SplitAfter(k, key+"/")
-		for _, k2 := range splitByKey {
-			if !strings.Contains(k2, "/") {
-				keys = append(keys, k2)
-			}
-		}
-	}
-
-	return keys, nil
-}
-
 func (e *ConsulStore) Get(reader ReaderWriter, tree *Tree) error {
-	return e.GetVersion(reader, tree, "latest")
+	return e.GetVersion(reader, tree, Latest)
 }
 
 func (e *ConsulStore) GetKeys(prefix string, separator string) ([]string, error) {
@@ -120,6 +100,26 @@ func (e *ConsulStore) GetVersion(reader ReaderWriter, tree *Tree, version string
 	}
 
 	return nil
+}
+
+func (e *ConsulStore) GetVersions(reader ReaderWriter, tree *Tree) ([]string, error) {
+	key := reader.MakePath(tree)
+	l, _, err := e.client.KV().Keys(key, "", nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot list %v", key)
+	}
+
+	var keys []string
+	for _, k := range l {
+		splitByKey := strings.SplitAfter(k, key+"/")
+		for _, k2 := range splitByKey {
+			if !strings.Contains(k2, "/") {
+				keys = append(keys, k2)
+			}
+		}
+	}
+
+	return keys, nil
 }
 
 // Internal method to save Any data under a hierarchy that follows revision control.
@@ -147,12 +147,12 @@ func (e *ConsulStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error 
 	} else {
 		p := source.MakePath(tree)
 		items = []string{
-			path.Join(p, "latest"),
+			path.Join(p, Latest),
 			path.Join(p, ts),
 		}
 	}
 
-	session := MakeVersion()
+	session := GenerateUuid()
 
 	lock, err := e.client.LockKey(path.Join(source.Key(), "lock"))
 	if err != nil {
@@ -190,6 +190,11 @@ func (e *ConsulStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error 
 	return nil
 }
 
+func (e *ConsulStore) DeleteKeys(prefix string) error {
+	_, err := e.client.KV().DeleteTree(prefix+"/", &api.WriteOptions{})
+	return err
+}
+
 func (e *ConsulStore) Setup() error {
 	conf := api.DefaultConfig()
 	if len(e.addr) > 0 {
@@ -202,6 +207,10 @@ func (e *ConsulStore) Setup() error {
 	}
 
 	e.client = client
+	return nil
+}
+
+func (e *ConsulStore) Teardown() error {
 	return nil
 }
 
@@ -232,13 +241,4 @@ func (e *ConsulStore) Unlock(key string) error {
 	}
 
 	return nil
-}
-
-func (e *ConsulStore) Teardown() error {
-	return nil
-}
-
-func (e *ConsulStore) DeleteKeys(prefix string) error {
-	_, err := e.client.KV().DeleteTree(prefix+"/", &api.WriteOptions{})
-	return err
 }

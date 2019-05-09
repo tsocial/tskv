@@ -123,10 +123,7 @@ func listVersions(c storage.Store, key string) []string {
 func main() {
 	app.Version(Version)
 
-	//c := MakeConsulStore(*consulAddr)
-	bucket := storage.RandString(10)
-	log.Printf("bucket: %+v", bucket)
-	c := storage.MakeBoltStore(bucket, "/tmp/"+bucket)
+	c := storage.MakeConsulStore(*consulAddr)
 	if err := c.Setup(); err != nil {
 		panic(err)
 	}

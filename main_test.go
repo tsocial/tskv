@@ -44,16 +44,16 @@ func TestValue(t *testing.T) {
 }
 
 func TestStorageDriver(t *testing.T) {
-	bucket := storage.MakeVersion()
+	bucket := storage.GenerateUuid()
 
 	store := storage.MakeBoltStore(bucket, "/tmp/"+bucket)
 	if err := store.Setup(); err != nil {
 		panic(err)
 	}
 
-	testKey := storage.MakeVersion()
-	oldValue := storage.MakeVersion()
-	newValue := storage.MakeVersion()
+	testKey := storage.GenerateUuid()
+	oldValue := storage.GenerateUuid()
+	newValue := storage.GenerateUuid()
 
 	oldTag := "v1"
 	newTag := "v2"

@@ -6,6 +6,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+const Latest = "latest"
+
 // Tree is a Hierarchical representation of a Path at which a node is expected to be found.
 type Tree struct {
 	Name  string
@@ -19,7 +21,7 @@ func (n *Tree) MakePath() string {
 	}
 	return d
 }
-func MakeVersion() string {
+func GenerateUuid() string {
 	return uuid.NewV4().String()
 }
 
@@ -49,13 +51,12 @@ type Store interface {
 	Setup() error
 	Teardown() error
 
-	GetKeys(prefix string, separator string) ([]string, error)
-	Save(reader ReaderWriter, tree *Tree) error
-	SaveTag(reader ReaderWriter, tree *Tree, ts string) error
 	Get(reader ReaderWriter, tree *Tree) error
+	GetKeys(prefix string, separator string) ([]string, error)
 	GetVersion(reader ReaderWriter, tree *Tree, version string) error
 	GetVersions(reader ReaderWriter, tree *Tree) ([]string, error)
-
+	Save(reader ReaderWriter, tree *Tree) error
+	SaveTag(reader ReaderWriter, tree *Tree, ts string) error
 	DeleteKeys(prefix string) error
 
 	Lock(key, s string) error
