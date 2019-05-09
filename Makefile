@@ -8,6 +8,10 @@ build_deps: deps
 test: build_deps
 	go test -v ./...
 
+# Run integration tests.
+integration_test: build_deps
+	go test -v -tags integration ./...
+
 # Build the tessellate cli.
 cli_build: build_deps
 	env GOOS=linux GARCH=amd64 CGO_ENABLED=0 GOCACHE=/tmp/gocache go build -o tskv -a -installsuffix \

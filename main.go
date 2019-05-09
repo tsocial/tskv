@@ -73,10 +73,9 @@ func (w *Value) Marshal() ([]byte, error) {
 }
 
 func getKey(c storage.Store, key string) []byte {
-	tree := storage.MakeTree(Archive)
 	w := MakeValue(key, nil)
 
-	err := c.Get(w, tree)
+	err := c.Get(w, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -105,6 +104,10 @@ func rollback(c storage.Store, key, tag string) {
 	}
 
 	if err := c.SaveTag(w, tree, timestamp()); err != nil {
+		panic(err)
+	}
+
+	if err := c.SaveTag(w, nil, tag); err != nil {
 		panic(err)
 	}
 }

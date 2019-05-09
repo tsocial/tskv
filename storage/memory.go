@@ -64,14 +64,18 @@ func (e *BoltStore) Get(reader ReaderWriter, tree *Tree) error {
 // GetVersion gets the specific version of a Key.
 // Raises error if Key is absent.
 func (e *BoltStore) GetVersion(reader ReaderWriter, tree *Tree, version string) error {
-	path := path.Join(reader.MakePath(tree), version)
+	// Same as getKey
+	p := reader.Key()
+	if tree != nil {
+		p = path.Join(reader.MakePath(tree), version)
+	}
 
 	return e.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(e.bucket)
-		bs := b.Get([]byte(path))
-		if bs == nil {
-			return errors.Errorf("Missing Key %v", path)
-		}
+		bs := b.Get([]byte(p))
+		//if bs == nil {
+		//	return errors.Errorf("Missing Key %v", p)
+		//}
 
 		if err := reader.Unmarshal(bs); err != nil {
 			return errors.Wrap(err, "Cannot unmarshal data into Reader")

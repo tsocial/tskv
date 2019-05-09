@@ -84,18 +84,23 @@ func (e *ConsulStore) GetKeys(prefix string, separator string) ([]string, error)
 }
 
 func (e *ConsulStore) GetVersion(reader ReaderWriter, tree *Tree, version string) error {
-	path := path.Join(reader.MakePath(tree), version)
+	// Same as getKey
+	p := reader.Key()
+	if tree != nil {
+		p = path.Join(reader.MakePath(tree), version)
+	}
+
 	// Get the vars for the layout.
-	bytes, err := e.get(path, reader)
+	b, err := e.get(p, reader)
 	if err != nil {
-		return errors.Wrapf(err, "Cannot fetch object for %v", path)
+		return errors.Wrapf(err, "Cannot fetch object for %v", p)
 	}
 
-	if bytes == nil || len(bytes) == 0 {
-		return errors.Errorf("Missing Key %v", path)
-	}
+	//if b == nil || len(b) == 0 {
+	//	return errors.Errorf("Missing Key %v", p)
+	//}
 
-	if err := reader.Unmarshal(bytes); err != nil {
+	if err := reader.Unmarshal(b); err != nil {
 		return errors.Wrap(err, "Cannot unmarshal data into Reader")
 	}
 
@@ -140,11 +145,9 @@ func (e *ConsulStore) SaveTag(source ReaderWriter, tree *Tree, ts string) error 
 		return errors.Wrap(err, "Cannot Marshal vars")
 	}
 
-	var items []string
+	items := []string{source.Key()}
 
-	if tree == nil {
-		items = []string{source.Key()}
-	} else {
+	if tree != nil {
 		p := source.MakePath(tree)
 		items = []string{
 			path.Join(p, Latest),
