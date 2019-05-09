@@ -31,7 +31,7 @@ var (
 	setCmdTag = setCmd.Flag("tag", "Tag").Default(timestamp()).String()
 	setCmdVal = setCmd.Arg("value", "File").Required().File()
 
-	rollbackCmd    = app.Command("rollback", "Rollback value of name to a specified tag")
+	rollbackCmd    = app.Command("rollbackVersion", "Rollback value of name to a specified tag")
 	rollbackCmdTag = rollbackCmd.Flag("tag", "Tag").Required().String()
 	rollbackCmdKey = rollbackCmd.Arg("name", "Name").Required().String()
 
@@ -71,51 +71,48 @@ func (w *File) Read() ([]byte, error) {
 	return w.content, nil
 }
 
-func getKey(c storage.Storer, name string) []byte {
+func getFile(c storage.Storer, name string) []byte {
 	w := MakeFile(name, nil)
 
-	err := c.Get(w, nil)
+	err := c.Get(w, storage.MakeDir())
 	if err != nil {
 		panic(err)
 	}
 	return w.content
 }
 
-func setKey(c storage.Storer, name, version string, b []byte) {
-	//NOTE: Trim the extra newlinke character
-	//b = bytes.TrimRight(b, "\n")
-
+func createFile(c storage.Storer, name, version string, b []byte) {
 	w := MakeFile(name, b)
 	if err := c.SaveTag(w, storage.MakeDir(Archive), version); err != nil {
 		panic(err)
 	}
 
-	if err := c.SaveTag(w, nil, version); err != nil {
+	if err := c.SaveTag(w, storage.MakeDir(), version); err != nil {
 		panic(err)
 	}
 }
 
-func rollback(c storage.Storer, name, version string) {
-	tree := storage.MakeDir(Archive)
+func rollbackVersion(c storage.Storer, name, version string) {
+	dir := storage.MakeDir(Archive)
 	w := MakeFile(name, nil)
-	if err := c.GetVersion(w, tree, version); err != nil {
+	if err := c.GetVersion(w, dir, version); err != nil {
 		panic(err)
 	}
 
-	if err := c.SaveTag(w, tree, timestamp()); err != nil {
+	if err := c.SaveTag(w, dir, timestamp()); err != nil {
 		panic(err)
 	}
 
-	if err := c.SaveTag(w, nil, version); err != nil {
+	if err := c.SaveTag(w, storage.MakeDir(), version); err != nil {
 		panic(err)
 	}
 }
 
 func listVersions(c storage.Storer, name string) []string {
-	tree := storage.MakeDir(Archive)
+	dir := storage.MakeDir(Archive)
 	w := MakeFile(name, nil)
 
-	l, err := c.GetVersions(w, tree)
+	l, err := c.GetVersions(w, dir)
 	if err != nil {
 		panic(err)
 	}
@@ -133,17 +130,17 @@ func main() {
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 
 	case getCmd.FullCommand():
-		log.Println(string(getKey(c, *getCmdKey)))
+		log.Println(string(getFile(c, *getCmdKey)))
 
 	case setCmd.FullCommand():
 		b, err := ioutil.ReadAll(*setCmdVal)
 		if err != nil {
 			panic(err)
 		}
-		setKey(c, *setCmdKey, *setCmdTag, b)
+		createFile(c, *setCmdKey, *setCmdTag, b)
 
 	case rollbackCmd.FullCommand():
-		rollback(c, *rollbackCmdKey, *rollbackCmdTag)
+		rollbackVersion(c, *rollbackCmdKey, *rollbackCmdTag)
 
 	case listTagCmd.FullCommand():
 		versions := listVersions(c, *listCmdKey)

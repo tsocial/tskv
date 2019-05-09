@@ -60,8 +60,8 @@ func TestStorageDriver(t *testing.T) {
 
 	t.Run("Set a value", func(t *testing.T) {
 		t.Run("Should save as custom tag", func(t *testing.T) {
-			setKey(store, testKey, oldTag, []byte(oldValue))
-			val := getKey(store, testKey)
+			createFile(store, testKey, oldTag, []byte(oldValue))
+			val := getFile(store, testKey)
 
 			assert.Equal(t, string(val), oldValue)
 		})
@@ -69,7 +69,7 @@ func TestStorageDriver(t *testing.T) {
 
 	t.Run("Get a value", func(t *testing.T) {
 		t.Run("Should get the value of specified tag", func(t *testing.T) {
-			val := getKey(store, testKey)
+			val := getFile(store, testKey)
 			assert.Equal(t, string(val), oldValue)
 		})
 	})
@@ -82,14 +82,14 @@ func TestStorageDriver(t *testing.T) {
 	})
 
 	t.Run("Test Rollback ", func(t *testing.T) {
-		t.Run("Should rollback the latest value to the specified tag value", func(t *testing.T) {
-			setKey(store, testKey, newTag, []byte(newValue))
-			val := getKey(store, testKey)
+		t.Run("Should rollbackVersion the latest value to the specified tag value", func(t *testing.T) {
+			createFile(store, testKey, newTag, []byte(newValue))
+			val := getFile(store, testKey)
 
 			assert.Equal(t, string(val), newValue)
 
-			rollback(store, testKey, oldTag)
-			oldVal := getKey(store, testKey)
+			rollbackVersion(store, testKey, oldTag)
+			oldVal := getFile(store, testKey)
 
 			assert.Equal(t, string(oldVal), oldValue)
 		})

@@ -27,7 +27,7 @@ func GenerateUuid() string {
 
 func MakeDir(nodes ...string) *Dir {
 	if len(nodes) < 1 {
-		return &Dir{Name: "unknown"}
+		return nil
 	}
 
 	t := Dir{Name: nodes[0]}

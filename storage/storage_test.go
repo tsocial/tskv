@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"log"
 	"path"
 	"strings"
 	"testing"
@@ -172,7 +173,8 @@ func TestTree(t *testing.T) {
 	t.Run("Test Trees", func(t *testing.T) {
 		t.Run("Empty Dir", func(t *testing.T) {
 			x := MakeDir()
-			assert.Equal(t, x.Path(), "unknown")
+			log.Printf("%+v", x)
+			assert.Equal(t, x, nil)
 		})
 
 		t.Run("One node", func(t *testing.T) {
