@@ -1,4 +1,4 @@
-package main
+package storage
 
 import (
 	"path"
@@ -49,10 +49,9 @@ type Store interface {
 	Setup() error
 	Teardown() error
 
-	GetKey(string) ([]byte, error)
-	SaveKey(string, []byte) error
 	GetKeys(prefix string, separator string) ([]string, error)
 	Save(reader ReaderWriter, tree *Tree) error
+	SaveTag(reader ReaderWriter, tree *Tree, ts string) error
 	Get(reader ReaderWriter, tree *Tree) error
 	GetVersion(reader ReaderWriter, tree *Tree, version string) error
 	GetVersions(reader ReaderWriter, tree *Tree) ([]string, error)

@@ -9,6 +9,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/tsocial/tskv/storage"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -58,7 +59,7 @@ func (w *Value) Key() string {
 	return w.key
 }
 
-func (w *Value) MakePath(t *Tree) string {
+func (w *Value) MakePath(t *storage.Tree) string {
 	return path.Join(t.MakePath(), w.key)
 }
 
@@ -71,8 +72,8 @@ func (w *Value) Marshal() ([]byte, error) {
 	return w.storage, nil
 }
 
-func getKey(c *ConsulStore, key string) []byte {
-	tree := MakeTree(Archive)
+func getKey(c storage.Store, key string) []byte {
+	tree := storage.MakeTree(Archive)
 	w := MakeValue(key, nil)
 
 	err := c.Get(w, tree)
@@ -82,12 +83,12 @@ func getKey(c *ConsulStore, key string) []byte {
 	return w.storage
 }
 
-func setKey(c *ConsulStore, key, tag string, b []byte) {
+func setKey(c storage.Store, key, tag string, b []byte) {
 	//NOTE: Trim the extra newline character
 	b = bytes.TrimRight(b, "\n")
 
 	w := MakeValue(key, b)
-	if err := c.SaveTag(w, MakeTree(Archive), tag); err != nil {
+	if err := c.SaveTag(w, storage.MakeTree(Archive), tag); err != nil {
 		panic(err)
 	}
 
@@ -96,8 +97,8 @@ func setKey(c *ConsulStore, key, tag string, b []byte) {
 	}
 }
 
-func rollback(c *ConsulStore, key, tag string) {
-	tree := MakeTree(Archive)
+func rollback(c storage.Store, key, tag string) {
+	tree := storage.MakeTree(Archive)
 	w := MakeValue(key, nil)
 	if err := c.GetVersion(w, tree, tag); err != nil {
 		panic(err)
@@ -108,8 +109,8 @@ func rollback(c *ConsulStore, key, tag string) {
 	}
 }
 
-func listVersions(c *ConsulStore, key string) []string {
-	tree := MakeTree(Archive)
+func listVersions(c storage.Store, key string) []string {
+	tree := storage.MakeTree(Archive)
 	w := MakeValue(key, nil)
 
 	l, err := c.GetVersions(w, tree)
@@ -122,7 +123,10 @@ func listVersions(c *ConsulStore, key string) []string {
 func main() {
 	app.Version(Version)
 
-	c := MakeConsulStore(*consulAddr)
+	//c := MakeConsulStore(*consulAddr)
+	bucket := storage.RandString(10)
+	log.Printf("bucket: %+v", bucket)
+	c := storage.MakeBoltStore(bucket, "/tmp/"+bucket)
 	if err := c.Setup(); err != nil {
 		panic(err)
 	}

@@ -3,12 +3,14 @@ package main
 import (
 	"testing"
 
+	"github.com/tsocial/tskv/storage"
+
 	"github.com/magiconair/properties/assert"
 )
 
 func TestValue(t *testing.T) {
 	t.Run("Value", func(t *testing.T) {
-		tr := MakeTree("a", "b")
+		tr := storage.MakeTree("a", "b")
 		v := MakeValue("k", []byte("b"))
 
 		nb := []byte("b2")
@@ -42,22 +44,24 @@ func TestValue(t *testing.T) {
 }
 
 func TestStorageDriver(t *testing.T) {
-	c := MakeConsulStore()
-	if err := c.Setup(); err != nil {
+	bucket := storage.MakeVersion()
+
+	store := storage.MakeBoltStore(bucket, "/tmp/"+bucket)
+	if err := store.Setup(); err != nil {
 		panic(err)
 	}
 
-	testKey := MakeVersion()
-	oldValue := MakeVersion()
-	newValue := MakeVersion()
+	testKey := storage.MakeVersion()
+	oldValue := storage.MakeVersion()
+	newValue := storage.MakeVersion()
 
 	oldTag := "v1"
 	newTag := "v2"
 
 	t.Run("Set a value", func(t *testing.T) {
 		t.Run("Should save as custom tag", func(t *testing.T) {
-			setKey(c, testKey, oldTag, []byte(oldValue))
-			val := getKey(c, testKey)
+			setKey(store, testKey, oldTag, []byte(oldValue))
+			val := getKey(store, testKey)
 
 			assert.Equal(t, string(val), oldValue)
 		})
@@ -65,27 +69,27 @@ func TestStorageDriver(t *testing.T) {
 
 	t.Run("Get a value", func(t *testing.T) {
 		t.Run("Should get the value of specified tag", func(t *testing.T) {
-			val := getKey(c, testKey)
+			val := getKey(store, testKey)
 			assert.Equal(t, string(val), oldValue)
 		})
 	})
 
 	t.Run("List tags", func(t *testing.T) {
 		t.Run("Should return all tags for the given key", func(t *testing.T) {
-			tags := listVersions(c, testKey)
+			tags := listVersions(store, testKey)
 			assert.Equal(t, tags, []string{"latest", oldTag})
 		})
 	})
 
 	t.Run("Test Rollback ", func(t *testing.T) {
 		t.Run("Should rollback the latest value to the specified tag value", func(t *testing.T) {
-			setKey(c, testKey, newTag, []byte(newValue))
-			val := getKey(c, testKey)
+			setKey(store, testKey, newTag, []byte(newValue))
+			val := getKey(store, testKey)
 
 			assert.Equal(t, string(val), newValue)
 
-			rollback(c, testKey, oldTag)
-			oldVal := getKey(c, testKey)
+			rollback(store, testKey, oldTag)
+			oldVal := getKey(store, testKey)
 
 			assert.Equal(t, string(oldVal), oldValue)
 		})

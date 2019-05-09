@@ -1,17 +1,14 @@
-package main
+package storage
 
 import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"path"
-
-	"time"
-
-	"fmt"
-
 	"strings"
+	"time"
 
 	"github.com/hashicorp/consul/api"
 	"github.com/pkg/errors"
