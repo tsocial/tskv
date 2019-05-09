@@ -136,7 +136,7 @@ func main() {
 	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
 
 	case getCmd.FullCommand():
-		log.Println(string(getFile(c, *getCmdKey)))
+		fmt.Printf(string(getFile(c, *getCmdKey)))
 
 	case setCmd.FullCommand():
 		b, err := ioutil.ReadAll(*setCmdVal)
@@ -150,7 +150,7 @@ func main() {
 
 	case listTagCmd.FullCommand():
 		versions := listVersions(c, *listCmdKey)
-		log.Println(versions)
+		fmt.Println(versions)
 
 	default:
 		log.Println(app.Help)
