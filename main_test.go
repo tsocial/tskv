@@ -8,41 +8,6 @@ import (
 	"github.com/magiconair/properties/assert"
 )
 
-func TestValue(t *testing.T) {
-	t.Run("File", func(t *testing.T) {
-		tr := storage.MakeDir("a", "b")
-		v := MakeFile("k", []byte("b"))
-
-		nb := []byte("b2")
-
-		t.Run("return path in a tree", func(t *testing.T) {
-			assert.Equal(t, v.Path(tr), "a/b/k")
-		})
-
-		t.Run("Write changes bytes", func(t *testing.T) {
-
-			if err := v.Write(nb); err != nil {
-				t.Error(err)
-			}
-
-			assert.Equal(t, v.content, nb)
-		})
-
-		t.Run("Read returns the bytes", func(t *testing.T) {
-			b, err := v.Read()
-			if err != nil {
-				t.Error(err)
-			}
-
-			assert.Equal(t, b, nb)
-		})
-
-		t.Run("Name isn't lying", func(t *testing.T) {
-			assert.Equal(t, v.Name(), "k")
-		})
-	})
-}
-
 func TestStorageDriver(t *testing.T) {
 	bucket := storage.GenerateUuid()
 
