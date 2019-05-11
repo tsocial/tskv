@@ -1,29 +1,16 @@
-// +build !integration
-
 package storage
 
 import (
-	"log"
-	"math/rand"
-	"os"
 	"testing"
-	"time"
-
-	"github.com/tsocial/tessellate/utils"
 )
 
-func TestMain(m *testing.M) {
-	//Seed Random number generator.
-	rand.Seed(time.Now().UnixNano())
+func TestMemory(t *testing.T) {
+	bucket := RandString(8)
 
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	s := MakeBoltStore(bucket, "/tmp/"+bucket)
+	s.Setup()
+	defer s.DeleteKeys(bucket)
 
-	bucket := utils.RandString(8)
-	store = MakeBoltStore(bucket, "/tmp/"+bucket)
-	store.Setup()
-
-	os.Exit(func() int {
-		defer store.DeleteKeys(bucket)
-		return m.Run()
-	}())
+	tests := MakeTestStore(s)
+	tests(t)
 }

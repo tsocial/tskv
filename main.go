@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
 	"time"
 
 	"github.com/tsocial/tskv/storage"
@@ -39,56 +38,24 @@ var (
 	listCmdKey = listTagCmd.Arg("key", "Key").Required().String()
 )
 
-func MakeFile(name string, content []byte) *File {
-	if content == nil {
-		content = []byte{}
-	}
-	return &File{name: name, content: content}
-}
-
-type File struct {
-	content []byte
-	name    string
-}
-
-func (w *File) UTime(string) {}
-
-func (w *File) IsCompressed() bool {
-	return false
-}
-
-func (w *File) Name() string {
-	return w.name
-}
-
-func (w *File) Path(t *storage.Dir) string {
-	return path.Join(t.Path(), w.name)
-}
-
-func (w *File) Write(b []byte) error {
-	if b == nil {
-		b = []byte{}
-	}
-	w.content = b
-	return nil
-}
-
-func (w *File) Read() ([]byte, error) {
-	return w.content, nil
-}
-
 func getFile(c storage.Storer, name string) []byte {
-	w := MakeFile(name, nil)
+	w := storage.MakeFile(name, nil)
 
 	err := c.Get(w, storage.MakeDir())
 	if err != nil {
 		panic(err)
 	}
-	return w.content
+
+	b, err := w.Read()
+	if err != nil {
+		panic(err)
+	}
+
+	return b
 }
 
 func createFile(c storage.Storer, name, version string, b []byte) {
-	w := MakeFile(name, b)
+	w := storage.MakeFile(name, b)
 	if err := c.SaveTag(w, storage.MakeDir(Archive), version); err != nil {
 		panic(err)
 	}
@@ -100,7 +67,7 @@ func createFile(c storage.Storer, name, version string, b []byte) {
 
 func rollbackVersion(c storage.Storer, name, version string) {
 	dir := storage.MakeDir(Archive)
-	w := MakeFile(name, nil)
+	w := storage.MakeFile(name, nil)
 	if err := c.GetVersion(w, dir, version); err != nil {
 		panic(err)
 	}
@@ -116,7 +83,7 @@ func rollbackVersion(c storage.Storer, name, version string) {
 
 func listVersions(c storage.Storer, name string) []string {
 	dir := storage.MakeDir(Archive)
-	w := MakeFile(name, nil)
+	w := storage.MakeFile(name, nil)
 
 	l, err := c.GetVersions(w, dir)
 	if err != nil {
