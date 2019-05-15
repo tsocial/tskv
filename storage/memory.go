@@ -73,12 +73,11 @@ func (e *BoltStore) GetVersion(f FileHandler, dir *Dir, version string) error {
 	return e.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(e.bucket)
 		bs := b.Get([]byte(p))
-		//if bs == nil {
-		//	return errors.Errorf("Missing Name %v", p)
-		//}
 
-		if err := f.Write(bs); err != nil {
-			return errors.Wrap(err, "Cannot unmarshal data into Reader")
+		if bs != nil {
+			if err := f.Write(bs); err != nil {
+				return errors.Wrap(err, "Cannot unmarshal data into Reader")
+			}
 		}
 		return nil
 	})

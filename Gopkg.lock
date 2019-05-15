@@ -149,14 +149,6 @@
   version = "v1.3.0"
 
 [[projects]]
-  digest = "1:f461aa7f3ae1f911d74fd637d6927ccda467c981b45e12cc8757909298fa4c45"
-  name = "github.com/tsocial/tessellate"
-  packages = ["utils"]
-  pruneopts = "UT"
-  revision = "5a388a1dfc7fb523e1397f34edaeb3dfe7292857"
-  version = "0.2.2"
-
-[[projects]]
   branch = "master"
   digest = "1:4fc43e824f7e546353de724c00507b1d9c0bab56344b10c2330a97f166a0fba7"
   name = "golang.org/x/sys"
@@ -182,7 +174,6 @@
     "github.com/pkg/errors",
     "github.com/satori/go.uuid",
     "github.com/stretchr/testify/assert",
-    "github.com/tsocial/tessellate/utils",
     "gopkg.in/alecthomas/kingpin.v2",
   ]
   solver-name = "gps-cdcl"

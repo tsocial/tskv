@@ -96,12 +96,10 @@ func (e *ConsulStore) GetVersion(f FileHandler, dir *Dir, version string) error 
 		return errors.Wrapf(err, "Cannot fetch object for %v", p)
 	}
 
-	//if b == nil || len(b) == 0 {
-	//	return errors.Errorf("Missing Name %v", p)
-	//}
-
-	if err := f.Write(b); err != nil {
-		return errors.Wrap(err, "Cannot unmarshal data into Reader")
+	if b != nil && len(b) != 0 {
+		if err := f.Write(b); err != nil {
+			return errors.Wrap(err, "Cannot unmarshal data into Reader")
+		}
 	}
 
 	return nil
