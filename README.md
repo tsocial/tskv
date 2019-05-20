@@ -7,24 +7,26 @@ A wrapper on top on consul to manage versioned values.
 usage: tskv [<flags>] <command> [<args> ...]
 
 Flags:
-  --help     Show context-sensitive help (also try --help-long and --help-man).
-  --version  Show application version.
+  --help           Show context-sensitive help (also try --help-long and --help-man).
+  --consul=CONSUL  Consul address
+  --version        Show application version.
 
 Commands:
   help [<command>...]
     Show help.
 
-  get
+  get <key>
     Get last set value of a key
 
   set [<flags>] <key> <value>
     Set a key
 
-  rollback --tag=TAG
+  rollback --tag=TAG <key>
     Rollback value of key to a specified tag
 
-  list-tag
+  list <key>
     List tags
+
 
 ```
 ### Build
