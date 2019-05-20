@@ -94,13 +94,14 @@ func listVersions(c storage.Storer, name string) []string {
 
 func main() {
 	app.Version(Version)
+	cmd := kingpin.MustParse(app.Parse(os.Args[1:]))
 
 	c := storage.MakeConsulStore(*consulAddr)
 	if err := c.Setup(); err != nil {
 		panic(err)
 	}
 
-	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+	switch cmd {
 
 	case getCmd.FullCommand():
 		fmt.Printf(string(getFile(c, *getCmdKey)))
