@@ -1,4 +1,4 @@
-module github.com/tsocial/tskv
+module gopkg.in/tsocial/tskv.v4
 
 go 1.12
 
